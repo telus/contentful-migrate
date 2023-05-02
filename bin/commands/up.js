@@ -12,19 +12,10 @@ const load = require('../../lib/load')
 
 exports.command = 'up [file]'
 
-exports.desc =
-  'Migrate up to a give migration or all pending if not specified'
+exports.desc = 'Migrate up to a give migration or all pending if not specified'
 
 exports.builder = (yargs) => {
   yargs
-    .option('access-token', {
-      alias: 't',
-      describe:
-        'Contentful Management API access token',
-      demandOption: true,
-      default: process.env.CONTENTFUL_MANAGEMENT_ACCESS_TOKEN,
-      defaultDescription: 'environment var CONTENTFUL_MANAGEMENT_ACCESS_TOKEN'
-    })
     .option('space-id', {
       alias: 's',
       describe: 'space id to use',
@@ -40,7 +31,8 @@ exports.builder = (yargs) => {
       type: 'string',
       requiresArg: true,
       default: process.env.CONTENTFUL_ENV_ID || 'master',
-      defaultDescription: 'environment var CONTENTFUL_ENV_ID if exists, otherwise master'
+      defaultDescription:
+        'environment var CONTENTFUL_ENV_ID if exists, otherwise master'
     })
     .option('content-type', {
       alias: 'c',
@@ -48,30 +40,45 @@ exports.builder = (yargs) => {
       array: true,
       default: []
     })
-    .option('all', {
+    .option('app-id', {
+      type: 'string',
       alias: 'a',
-      describe: 'processes migrations for all content types',
-      boolean: true
+      describe: 'App ID to use for getting management token',
+      default: process.env.CONTENTFUL_APP_ID,
+      demandOption: true
     })
     .option('dry-run', {
       alias: 'd',
-      describe: 'only shows the planned actions, don\'t write anything to Contentful',
+      describe:
+        "only shows the planned actions, don't write anything to Contentful",
+      boolean: true,
+      default: false
+    })
+    .option('access-token', {
+      alias: 't',
+      describe: 'Optional Contentful Management API access token',
+      defaultDescription:
+        'You can provide optional CMA access token not to fetch dynamically from app'
+    })
+    .option('all', {
+      describe: 'processes migrations for all content types',
       boolean: true,
       default: false
     })
     .positional('file', {
-      describe: 'If specified, applies all pending migrations scripts up to this one.',
+      describe:
+        'If specified, applies all pending migrations scripts up to this one.',
       type: 'string'
     })
     .check((argv) => {
-      if (argv.a && argv.c.length > 0) {
-        return 'Arguments \'content-type\' and \'all\' are mutually exclusive'
+      if (argv.all && argv.c.length > 0) {
+        return "Arguments 'content-type' and 'all' are mutually exclusive"
       }
-      if (!argv.a && argv.c.length === 0) {
-        return 'At least one of \'all\' or \'content-type\' options must be specified'
+      if (!argv.all && argv.c.length === 0) {
+        return "At least one of 'all' or 'content-type' options must be specified"
       }
-      if (argv.a && argv.file) {
-        return '[file] cannot be specified together with \'all\' option'
+      if (argv.all && argv.file) {
+        return "[file] cannot be specified together with 'all' option"
       }
       return true
     })
@@ -83,13 +90,15 @@ exports.handler = async (args) => {
   const {
     accessToken,
     contentType,
+    appId,
     dryRun,
     environmentId,
     file,
     spaceId
   } = args
 
-  const migrationsDirectory = path.join('.', 'migrations')
+  const migrationsDirectory =
+    process.env.CONTENTFUL_MIGRATIONS_DIR || path.join('.', 'migrations')
 
   const processSet = async (set) => {
     console.log(chalk.bold.blue('Processing'), set.store.contentTypeID)
@@ -99,6 +108,7 @@ exports.handler = async (args) => {
 
   // Load in migrations
   const sets = await load({
+    appId,
     accessToken,
     contentTypes: contentType,
     dryRun,
@@ -110,11 +120,19 @@ exports.handler = async (args) => {
   // TODO concurrency can be an cmdline option? I set it to 1 for now to make logs more readable
   pMap(sets, processSet, { concurrency: 1 })
     .then(() => {
-      console.log(chalk.bold.yellow(`\n🎉  All content types in ${environmentId} are up-to-date`))
+      console.log(
+        chalk.bold.yellow(
+          `\n🎉  All content types in ${environmentId} are up-to-date`
+        )
+      )
     })
     .catch((err) => {
       log.error('error', err)
-      console.log(chalk.bold.red(`\n🚨  Error applying migrations to "${environmentId}" environment! See above for error messages`))
+      console.log(
+        chalk.bold.red(
+          `\n🚨  Error applying migrations to "${environmentId}" environment! See above for error messages`
+        )
+      )
       process.exit(1)
     })
 }

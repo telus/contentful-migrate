@@ -13,14 +13,6 @@ exports.desc =
 
 exports.builder = (yargs) => {
   yargs
-    .option('access-token', {
-      alias: 't',
-      describe:
-        'Contentful Management API access token',
-      demandOption: true,
-      default: process.env.CONTENTFUL_MANAGEMENT_ACCESS_TOKEN,
-      defaultDescription: 'environment var CONTENTFUL_MANAGEMENT_ACCESS_TOKEN'
-    })
     .option('space-id', {
       alias: 's',
       describe: 'space id to use',
@@ -36,21 +28,36 @@ exports.builder = (yargs) => {
       type: 'string',
       requiresArg: true,
       default: process.env.CONTENTFUL_ENV_ID || 'master',
-      defaultDescription: 'environment var CONTENTFUL_ENV_ID if exists, otherwise master'
+      defaultDescription:
+        'environment var CONTENTFUL_ENV_ID if exists, otherwise master'
     })
     .option('content-type', {
       alias: 'c',
       describe: 'single content type name to process',
       demandOption: true
     })
+    .option('app-id', {
+      type: 'string',
+      alias: 'a',
+      describe: 'App ID to use for getting management token',
+      default: process.env.CONTENTFUL_APP_ID,
+      demandOption: true
+    })
+    .option('access-token', {
+      alias: 't',
+      describe: 'CMA access token if provided overrides token fetched by APP',
+      defaultDescription: 'environment var CONTENTFUL_MANAGEMENT_ACCESS_TOKEN'
+    })
     .option('dry-run', {
       alias: 'd',
-      describe: 'only shows the planned actions, don\'t write anything to Contentful',
+      describe:
+        "only shows the planned actions, don't write anything to Contentful",
       boolean: true,
       default: false
     })
     .positional('file', {
-      describe: 'If specified, rollback all migrations scripts down to this one.',
+      describe:
+        'If specified, rollback all migrations scripts down to this one.',
       type: 'string'
     })
 }
@@ -59,16 +66,18 @@ exports.handler = async (args) => {
   const {
     accessToken,
     contentType,
+    appId,
     dryRun,
     environmentId,
     file,
     spaceId
   } = args
 
-  const migrationsDirectory = path.join('.', 'migrations')
+  const migrationsDirectory =
+    process.env.CONTENTFUL_MIGRATIONS_DIR || path.join('.', 'migrations')
 
   const processSet = (set) => {
-    const name = (file) || set.lastRun
+    const name = file || set.lastRun
 
     runMigrations(set, 'down', name, (error) => {
       if (error) {
@@ -83,13 +92,19 @@ exports.handler = async (args) => {
 
   // Load in migrations
   const sets = await load({
-    migrationsDirectory, spaceId, environmentId, accessToken, dryRun, contentTypes: [contentType]
+    appId,
+    accessToken,
+    migrationsDirectory,
+    spaceId,
+    environmentId,
+    dryRun,
+    contentTypes: [contentType]
   })
 
-  sets.forEach(set => set
-    .then(processSet)
-    .catch((err) => {
+  sets.forEach((set) =>
+    set.then(processSet).catch((err) => {
       log.error('error', err)
       process.exit(1)
-    }))
+    })
+  )
 }

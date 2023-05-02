@@ -3,9 +3,10 @@
 
 /* eslint-disable no-unused-expressions */
 // noinspection BadExpressionStatementJS
-require('yargs')
-  .usage('Manage your Contentful schema by creating incremental scripted changes\nFor more information visit https://github.com/deluan/contentful-migrate')
-  .commandDir('./commands')
+require("yargs")
+  .usage(
+    "Telus version to manage your Contentful schema by creating incremental scripted changes\nFor more information visit https://github.com/deluan/contentful-migrate"
+  )
+  .commandDir("./commands")
   .recommendCommands()
-  .demandCommand(1, 'Please provide a valid command from the list above')
-  .argv;
+  .demandCommand(1, "Please provide a valid command from the list above").argv;
